@@ -1,7 +1,7 @@
 #!/bin/bash
 # Installs the nightly Claude Science backup on macOS. Run once from Terminal, from this folder:
 #   bash install.sh
-# Optional: choose a different source or destination by setting them on the same line, e.g.
+# Optional: choose a different destination (or data folder, with CSB_DATA_DIR) on the same line, e.g.
 #   CSB_DEST="/Volumes/Backup/Claude Science Backup" bash install.sh
 # The installer never deletes anything. Rerun it after updating backup.sh.
 set -euo pipefail
@@ -15,7 +15,11 @@ LABEL=local.claude-science-backup
 APPDIR="$HOME/Library/Application Support/claude-science-backup"
 PLIST="$HOME/Library/LaunchAgents/$LABEL.plist"
 
-[ -d "$SRC/orgs" ] || { echo "No Claude Science data found at $SRC. Check Settings > Storage > Data location in Claude Science and rerun with CSB_SRC set to that folder."; exit 1; }
+# Find the data folder the same way the nightly job does (it follows data_dir in config.toml).
+PATHS=$(CSB_SRC="$SRC" CSB_DEST="$DEST" CSB_DATA_DIR="${CSB_DATA_DIR:-}" CSB_PRINT_PATHS=1 /bin/bash "$HERE/backup.sh")
+echo "$PATHS"
+DATA=$(printf '%s\n' "$PATHS" | sed -n 's/^data folder: *//p')
+[ -d "$DATA/orgs" ] || { echo "No Claude Science data found at $DATA. Check Settings > Storage > Data location in Claude Science and rerun with CSB_DATA_DIR set to that folder."; exit 1; }
 mkdir -p "$DEST" || { echo "Cannot create the backup folder $DEST"; exit 1; }
 mkdir -p "$APPDIR" "$HOME/Library/LaunchAgents"
 cp "$HERE/backup.sh" "$APPDIR/backup.sh"; chmod 755 "$APPDIR/backup.sh"
@@ -29,7 +33,7 @@ cat > "$PLIST" <<PL
   <key>ProgramArguments</key><array><string>/bin/bash</string><string>$APPDIR/backup.sh</string></array>
   <key>EnvironmentVariables</key><dict>
     <key>CSB_SRC</key><string>$SRC</string>
-    <key>CSB_DEST</key><string>$DEST</string>
+    <key>CSB_DEST</key><string>$DEST</string>$( [ -n "${CSB_DATA_DIR:-}" ] && printf '\n    <key>CSB_DATA_DIR</key><string>%s</string>' "$CSB_DATA_DIR" || true )
   </dict>
   <key>StartCalendarInterval</key><dict><key>Hour</key><integer>2</integer><key>Minute</key><integer>17</integer></dict>
   <key>LowPriorityIO</key><true/>
@@ -40,10 +44,8 @@ PL
 launchctl bootout "gui/$(id -u)/$LABEL" 2>/dev/null || true
 launchctl bootstrap "gui/$(id -u)" "$PLIST"
 
-echo "Source:      $SRC"
-echo "Destination: $DEST"
 echo "Running the first backup now. The first one copies everything and can take a while..."
-CSB_SRC="$SRC" CSB_DEST="$DEST" /bin/bash "$APPDIR/backup.sh" || true
+CSB_SRC="$SRC" CSB_DEST="$DEST" CSB_DATA_DIR="${CSB_DATA_DIR:-}" /bin/bash "$APPDIR/backup.sh" || true
 cat "$DEST/last-run.txt" 2>/dev/null || echo "No last-run.txt was written. See $LOG"
 if grep -q "can't keep previous versions" "$LOG" 2>/dev/null; then
   echo "Note: this Mac's rsync can't keep previous versions of changed files. Run 'brew install rsync' to enable that."

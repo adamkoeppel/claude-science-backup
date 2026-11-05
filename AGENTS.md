@@ -13,8 +13,8 @@ You are setting up a nightly backup of Claude Science's local data on a person's
 ## Steps
 
 1. **Confirm the platform.** Run `uname` and `sw_vers`. This only works on macOS.
-2. **Find the data folder.** The default is `~/.claude-science`. Confirm it contains `orgs/`. If it doesn't, ask the person to check Settings > Storage > Data location in Claude Science and use that path as `CSB_SRC`.
-3. **Size it.** Run `du -sh` on the data folder and on its `conda` subfolder. The first backup is roughly the first figure minus the second. Tell the person the number.
+2. **Find the data folder.** Run `CSB_PRINT_PATHS=1 /bin/bash backup.sh` from the repo. It prints the default folder, the data folder (it follows `data_dir` in `~/.claude-science/config.toml`), whether the app-window folder exists, and the destination, and changes nothing. Confirm the data folder contains `orgs/`. If it doesn't, ask the person to check Settings > Storage > Data location in Claude Science and pass that path as `CSB_DATA_DIR`.
+3. **Size it.** Run `du -sh` on the data folder's `orgs` subfolder. The first backup is roughly that size. Tell the person the number.
 4. **Choose the destination with the person.** The default is iCloud Drive (`~/Library/Mobile Documents/com~apple~CloudDocs/Claude Science Backup`).
    - Confirm iCloud Drive exists. If the person uses it, ask them to check free space under System Settings > [their name] > iCloud.
    - Mention that writing to the iCloud folder also uses local disk until macOS offloads the files. "Optimize Mac Storage" in iCloud Drive settings handles that. Check free local disk with `df -h ~`.
@@ -29,7 +29,7 @@ You are setting up a nightly backup of Claude Science's local data on a person's
 
 ## Updating
 
-To change the script, edit `backup.sh` in the repo, rerun `tests/run-tests.sh`, then rerun `install.sh`. The installer copies the new version into place. It never deletes existing backups.
+To change the script, edit `backup.sh` in the repo, rerun `tests/run-tests.sh`, then rerun `install.sh`. Keep `backup.sh` working under `/bin/bash` 3.2, which is what macOS ships and what launchd runs: no namerefs (`local -n`), no `mapfile`, no `${var,,}`, and never expand a possibly empty array under `set -u`. On a Mac the self-test runs the backup with `/bin/bash`, so a passing test there is the real check. The installer copies the new version into place. It never deletes existing backups.
 
 ## Uninstalling
 

@@ -10,8 +10,9 @@ Every night at 2:17 AM, or when the Mac next wakes if it was asleep, `backup.sh`
 
 1. Writes a software manifest: an exact export of each conda environment, its install history, and its pip and R package lists. The environments themselves are not copied, because they are large and rebuild cleanly from the manifest.
 2. Takes a consistent snapshot of the Claude Science database with SQLite's own backup command, which is safe while the app is running. It checks the snapshot's integrity, compresses it and saves it with the date in its name.
-3. Mirrors the rest of the data folder (projects, artifacts, workspaces, skills, settings) with rsync. After the first run only changes are copied.
-4. Writes the result to `last-run.txt`. On failure it also shows a macOS notification.
+3. Mirrors the rest of the data folder (projects, artifacts, workspaces, skills, settings) with rsync. After the first run only changes are copied. If `data_dir` in Claude Science's `config.toml` moves the data elsewhere, the script follows it and also backs up the default folder's settings.
+4. On a Mac where Claude Science opens in its own window, it also backs up `~/Library/Application Support/Claude Science`, which holds window settings and unsent message drafts. Caches and cookies are left out.
+5. Writes the result to `last-run.txt`. On failure it also shows a macOS notification.
 
 ## What it never does
 
@@ -38,7 +39,13 @@ To back up somewhere other than iCloud Drive, such as an external disk:
 CSB_DEST="/Volumes/Backup/Claude Science Backup" bash install.sh
 ```
 
-If Claude Science keeps its data somewhere other than `~/.claude-science` (see Settings > Storage > Data location in the app), set `CSB_SRC` the same way.
+The script finds the data folder by itself, including when `data_dir` is set in `~/.claude-science/config.toml`. To see what it will back up without running a backup:
+
+```
+CSB_PRINT_PATHS=1 bash backup.sh
+```
+
+If that shows the wrong data folder (check Settings > Storage > Data location in the app), set `CSB_DATA_DIR` the same way as `CSB_DEST`.
 
 If the scheduled run fails with "Operation not permitted", macOS is blocking background access to the destination. Add `/bin/bash` under System Settings > Privacy & Security > Full Disk Access and run the installer again.
 
